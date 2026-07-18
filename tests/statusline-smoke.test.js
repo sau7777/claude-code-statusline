@@ -570,7 +570,7 @@ check('launch-dir basename stays full on short lines (no eager ellipsis)', () =>
   assert(text.includes(`${'0123456789'.repeat(3)} ▸ work`), `full launch name on a short line: ${text}`);
 });
 
-check('breadcrumb participates in the 100-column budget: full → shortened → dropped', () => {
+check('breadcrumb participates in the 100-column budget: full → shortened, never dropped', () => {
   const parent = makeTempDir();
   const launch = path.join(parent, '0123456789'.repeat(3)); // 30 chars
   const current = path.join(parent, 'work'); // ≤15 chars: the old dirRaw!==dirShort gate never fired
@@ -590,10 +590,10 @@ check('breadcrumb participates in the 100-column budget: full → shortened → 
   const mid = at(70);
   assert(mid.includes('0123456…3456789 ▸ work'), `shortened crumb: ${mid}`);
 
-  // model(90) → over budget even shortened (115): the crumb is dropped, dir stays.
+  // model(90) → over budget even when shortened (115). Personal tweak keeps the
+  // crumb (upstream drops it as a final stage); the launch name stays ellipsised.
   const wide = at(90);
-  assert(!wide.includes('▸'), `crumb dropped: ${wide}`);
-  assert(wide.includes('work'), `dir name kept: ${wide}`);
+  assert(wide.includes('0123456…3456789 ▸ work'), `crumb kept shortened, not dropped: ${wide}`);
 });
 
 check('no breadcrumb when project_dir is the same dir in a different spelling', () => {

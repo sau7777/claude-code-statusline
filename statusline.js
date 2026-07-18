@@ -408,13 +408,14 @@ process.stdin.on('end', () => {
     for (const lp of limitParts) segments.push(lp);
 
     // Reclaim width only once the line crosses 100 visible columns, in stages:
-    // shorten the dir name, then the launch name, then drop the crumb entirely.
-    // Short lines keep both names in full.
+    // shorten the dir name, then the launch name. Short lines keep both in full.
+    // Personal tweak vs upstream: never drop the launch crumb as a final stage —
+    // on these dense panels seeing where the session is rooted matters more than
+    // staying strictly within 100 cols, so at worst it shows ellipsised.
     const launchShort = shorten(launchRaw);
     const fallbacks = [];
     if (dirRaw !== dirShort) fallbacks.push([dirShort, launchRaw]);
     if (launchRaw !== launchShort) fallbacks.push([dirShort, launchShort]);
-    if (launchRaw) fallbacks.push([dirShort, '']);
     if (fallbacks.length > 0) {
       const stripAnsi = (s) => s.replace(/\x1b\[[0-9;]*m/g, '');
       const width = () => {
