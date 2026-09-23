@@ -221,9 +221,24 @@ ends. Dimensions do have a per-tab property, so those are switched off directly.
 Nothing outside the tab changes, and a closed tab forgets all of it.
 
 **Setup (once).** In Terminal's settings duplicate the profile you actually use —
-otherwise the tab's colors and font change along with the title — name the copy
-(`claude` below), and under Window → Title uncheck "Working directory or document",
-"Active process name" and "Active process arguments". Pass that name to `tidy`.
+otherwise the tab's colors and font change along with the title — and name the copy
+(`claude` below). Terminal has no "show the custom title" switch: an escape-set title
+is always displayed, and the checkboxes only add more parts around it, so the setup
+is all unchecking. Window and tab titles are composed separately, and both matter:
+
+| In the profile | Uncheck | Key it writes |
+|----------------|---------|---------------|
+| Window → Title | Working directory or document | `ShowRepresentedURLInTitle` |
+| Window → Title | Active process name (and arguments) | `ShowActiveProcessInTitle` |
+| Tab → Title | Working directory or document | `ShowRepresentedURLInTabTitle` |
+| Tab → Title | Active process name (and arguments) | `ShowActiveProcessInTabTitle` |
+| Tab | Show activity indicator | `ShowActivityIndicatorInTab` |
+
+The activity indicator is the easy one to miss: it leaves the title alone while the
+window is in front, then replaces the tab's label with the running process a few
+seconds after the window goes to the background, which reads as the title randomly
+reverting. Verify with
+`defaults read com.apple.Terminal "Window Settings"`. Pass the profile name to `tidy`.
 
 **How it finds the tab.** Hooks are spawned without a controlling terminal, so it
 walks up the process tree until an ancestor reports a real tty, then matches that
