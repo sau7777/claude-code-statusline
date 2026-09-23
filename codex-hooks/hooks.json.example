@@ -1,0 +1,36 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|resume",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"/absolute/path/to/codex-hooks/github-sync-check.js\"",
+            "timeout": 10,
+            "statusMessage": "Checking repository state"
+          },
+          {
+            "type": "command",
+            "command": "node \"/absolute/path/to/codex-hooks/md-sync-check.js\"",
+            "timeout": 5,
+            "statusMessage": "Checking agent instruction files"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "^apply_patch$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"/absolute/path/to/codex-hooks/sync-md.js\"",
+            "timeout": 5,
+            "statusMessage": "Syncing agent instruction files"
+          }
+        ]
+      }
+    ]
+  }
+}

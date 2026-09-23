@@ -1,0 +1,10 @@
+[tui]
+status_line = [
+  "model-with-reasoning",
+  "fast-mode",
+  "current-dir",
+  "git-branch",
+  "context-used",
+  "five-hour-limit",
+  "weekly-limit",
+]
