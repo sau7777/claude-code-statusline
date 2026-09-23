@@ -1,6 +1,6 @@
 # Optional Hooks
 
-Four small Claude Code hooks that pair well with `statusline.js`. Each is
+Five small Claude Code hooks that pair well with `statusline.js`. Each is
 independent — install one, some, or all of them. None of them block your tools on
 failure (they all `process.exit(0)` on any error).
 
@@ -10,6 +10,7 @@ failure (they all `process.exit(0)` on any error).
 | [`sync-md.js`](#sync-mdjs) | `PostToolUse` (Edit/Write/MultiEdit) | Auto-mirrors `CLAUDE.md` into `AGENTS.md` and `GEMINI.md` |
 | [`github-sync-check.js`](#github-sync-checkjs) | `SessionStart` | Warns about uncommitted files and `origin` divergence |
 | [`title-state.js`](#title-statejs) | `SessionStart` + `UserPromptSubmit` + `Stop` | Paints the terminal title with the launch dir, the model and a busy/idle glyph |
+| [`title-tab.js`](#title-tabjs) | `SessionStart` + `SessionEnd` | Switches the session's tab to a Terminal profile that shows nothing but that title |
 
 Recommended placement: drop the files directly into `~/.claude/hooks/` to keep
 them alongside `statusline.js`. The examples below use that flat layout.
@@ -200,7 +201,71 @@ parts. With "Working directory" and "Active process name" checked you get
 
 ---
 
-## Combined snippet (all four + the statusline)
+## `title-tab.js`
+
+**The problem it solves.** macOS Terminal builds its title bar out of several
+parts, and the title `title-state.js` sets is only one of them:
+
+```
+my-project — ✳ my-project · Op4.8:hg — caffeinate ◂ claude --resume 1f2e… — 211×73
+└ working dir  └ the title we set     └ active process + arguments        └ dimensions
+```
+
+**Why it switches profiles.** "Working directory or document" and "Active process
+name/arguments" are not in Terminal's AppleScript dictionary. (`title displays file
+name` and `title displays shell path` sound like them but are different options and
+have no effect here — verified by reading the rendered `name of window` back after
+setting them.) What *is* scriptable is the tab's whole profile, so this hook moves
+the tab onto a profile with those parts unchecked and moves it back when the session
+ends. Dimensions do have a per-tab property, so those are switched off directly.
+Nothing outside the tab changes, and a closed tab forgets all of it.
+
+**Setup (once).** In Terminal's settings duplicate the profile you actually use —
+otherwise the tab's colors and font change along with the title — name the copy
+(`claude` below), and under Window → Title uncheck "Working directory or document",
+"Active process name" and "Active process arguments". Pass that name to `tidy`.
+
+**How it finds the tab.** Hooks are spawned without a controlling terminal, so it
+walks up the process tree until an ancestor reports a real tty, then matches that
+against `tty` of each tab. No Automation permission prompt: Terminal scripting
+itself is not cross-application.
+
+**Restoring.** The profile the tab had is remembered in
+`<tmpdir>/claude-title-profile-<tty>` — keyed by tab, not by session, since that is
+what the setting belongs to. A session that is killed outright never runs
+`SessionEnd`, so the record is kept rather than overwritten when the next session
+finds the tab already switched; the tab is restored whenever a session does end
+cleanly, and closing it resets everything regardless.
+
+**Scope.** Exits immediately unless `TERM_PROGRAM` is `Apple_Terminal` — iTerm2,
+Ghostty, WezTerm and friends compose titles their own way and are left alone.
+
+**Install.**
+
+```json
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          { "type": "command", "command": "node \"/absolute/path/to/title-tab.js\" tidy claude" }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          { "type": "command", "command": "node \"/absolute/path/to/title-tab.js\" restore" }
+        ]
+      }
+    ]
+  }
+}
+```
+
+---
+
+## Combined snippet (all five + the statusline)
 
 If you want everything wired up at once, here's the full block to merge into
 `~/.claude/settings.json`:
@@ -234,8 +299,16 @@ If you want everything wired up at once, here's the full block to merge into
       {
         "hooks": [
           { "type": "command", "command": "node \"/absolute/path/to/title-state.js\" idle" },
+          { "type": "command", "command": "node \"/absolute/path/to/title-tab.js\" tidy claude" },
           { "type": "command", "command": "node \"/absolute/path/to/github-sync-check.js\"", "timeout": 10 },
           { "type": "command", "command": "node \"/absolute/path/to/md-sync-check.js\"",      "timeout": 5  }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          { "type": "command", "command": "node \"/absolute/path/to/title-tab.js\" restore" }
         ]
       }
     ],
