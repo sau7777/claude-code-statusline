@@ -86,6 +86,19 @@ session.
 
 ## Optional companion hooks
 
+### Codex CLI variant
+
+The separate [`codex-hooks/`](./codex-hooks/) variant uses Codex's native
+`tui.status_line` and lifecycle hooks. It includes Codex-shaped `SessionStart`
+and `PostToolUse` scripts, a complete `hooks.json` example, and a TOML status-line
+example. Its Markdown mirror treats `AGENTS.md` as canonical and writes
+`CLAUDE.md` plus `GEMINI.md`; the existing Claude hooks are unchanged.
+
+Codex currently supports selectable built-in footer items, not an arbitrary
+command-backed renderer, so the Claude-specific `statusline.js` itself is not
+reused there. See [`codex-hooks/README.md`](./codex-hooks/README.md) for setup and
+limitations.
+
 ### Why MD sync matters
 
 Different coding agents read different memory files from your project root:
