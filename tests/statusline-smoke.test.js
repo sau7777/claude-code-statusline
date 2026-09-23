@@ -733,7 +733,7 @@ check('cache TTL falls back to project_dir slug (not current_dir) when transcrip
   assert(text.includes('cache 99% ↓1k +10 1h:'), text);
 });
 
-check('terminal title text carries the launch dir and the panel\'s model code', () => {
+check('terminal title text carries the launch dir and the model, nothing else', () => {
   const current = makeTempDir();
   const launch = makeTempDir();
   const { title } = runStatusline({
@@ -742,8 +742,10 @@ check('terminal title text carries the launch dir and the panel\'s model code', 
     session_id: 'title-session',
     workspace: { current_dir: current, project_dir: launch }
   });
-  // The glyph and the escape belong to title-state.js; only the text is composed here.
-  assert.strictEqual(title, `${path.basename(launch)} \u00b7 Op4.8:hg (1m)`, String(title));
+  // The glyph and the escape belong to title-state.js; only the text is composed
+  // here, and it stays short on purpose - the effort code and the context tag the
+  // panel shows are left out so the tab label is not tightened to fit.
+  assert.strictEqual(title, `${path.basename(launch)} \u00b7 Op4.8`, String(title));
 });
 
 check('terminal title text falls back to the current dir without a project_dir', () => {

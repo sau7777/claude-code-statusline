@@ -138,7 +138,7 @@ session stale — but you pay zero startup cost for it.
 ## `title-state.js`
 
 **What it does.** Paints the terminal window title as `<glyph> <launch dir> · <model>`:
-`✳ my-project · Op4.8:hg` when idle, `◐ my-project · Op4.8:hg` while a turn runs.
+`✳ my-project · Op4.8` when idle, `◐ my-project · Op4.8` while a turn runs.
 The text half is composed by `statusline.js` — it is the one that knows the model
 and the directory the session was launched from — and left in
 `<tmpdir>/claude-title-text-<session_id>`. This hook adds the glyph for the event it
@@ -164,7 +164,7 @@ Install only the events you care about — each one is independent.
 **A note on terminal settings.** macOS Terminal composes its title bar from
 Settings → Profiles → Window → Title, and an escape-set title is only one of the
 parts. With "Working directory" and "Active process name" checked you get
-`my-project — ✳ my-project · Op4.8:hg — node`; uncheck them to see the title alone.
+`my-project — ✳ my-project · Op4.8 — node`; uncheck them to see the title alone.
 
 **Install.** The env var belongs in the same settings file:
 
@@ -207,8 +207,8 @@ parts. With "Working directory" and "Active process name" checked you get
 parts, and the title `title-state.js` sets is only one of them:
 
 ```
-my-project — ✳ my-project · Op4.8:hg — caffeinate ◂ claude --resume 1f2e… — 211×73
-└ working dir  └ the title we set     └ active process + arguments        └ dimensions
+my-project — ✳ my-project · Op4.8 — caffeinate ◂ claude --resume 1f2e… — 211×73
+└ working dir  └ the title          └ active process + arguments         └ dimensions
 ```
 
 **Why it switches profiles.** "Working directory or document" and "Active process

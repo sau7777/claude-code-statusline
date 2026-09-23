@@ -443,13 +443,16 @@ process.stdin.on('end', () => {
     // in a catch). Leave the text where title-state.js can pick it up instead —
     // that hook hands it back as `terminalSequence` and Claude Code writes it from
     // the terminal it does own. The glyph and the escape live there; composed here
-    // are only the launch dir and the short model name the segments above render.
+    // are only the launch dir and the model family, from the same values the
+    // segments above render. Deliberately without the effort code and the context
+    // tag those segments carry: a tab label is narrow, and AppKit tightens the
+    // glyphs of a long one to make it fit, which reads as a smaller font. Both are
+    // a glance away in the panel itself.
     if (session) {
       try {
         const titlePath = path.join(os.tmpdir(), `claude-title-text-${session}`);
         const titleDir = path.basename(launchDir || dir);
-        fs.writeFileSync(titlePath,
-          `${titleDir} \u00b7 ${model.base}${effortSeg}${model.ctx}`);
+        fs.writeFileSync(titlePath, `${titleDir} \u00b7 ${model.base}`);
       } catch (e) {}
     }
   } catch (e) {}
