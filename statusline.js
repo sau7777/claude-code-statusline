@@ -435,5 +435,22 @@ process.stdin.on('end', () => {
     }
 
     process.stdout.write(segments.join(' \u2502 '));
+
+    // --- Terminal title ---
+    // Claude Code spawns the status line without a controlling terminal, so this
+    // script cannot emit the escape itself: opening /dev/tty here fails with
+    // "Device not configured" (and the failure is invisible, since the write sits
+    // in a catch). Leave the text where title-state.js can pick it up instead —
+    // that hook hands it back as `terminalSequence` and Claude Code writes it from
+    // the terminal it does own. The glyph and the escape live there; composed here
+    // are only the launch dir and the short model name the segments above render.
+    if (session) {
+      try {
+        const titlePath = path.join(os.tmpdir(), `claude-title-text-${session}`);
+        const titleDir = path.basename(launchDir || dir);
+        fs.writeFileSync(titlePath,
+          `${titleDir} \u00b7 ${model.base}${effortSeg}${model.ctx}`);
+      } catch (e) {}
+    }
   } catch (e) {}
 });

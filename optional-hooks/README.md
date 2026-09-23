@@ -1,7 +1,7 @@
 # Optional Hooks
 
-Three small Claude Code hooks that pair well with `statusline.js`. Each is
-independent — install one, two, or all three. None of them block your tools on
+Four small Claude Code hooks that pair well with `statusline.js`. Each is
+independent — install one, some, or all of them. None of them block your tools on
 failure (they all `process.exit(0)` on any error).
 
 | Hook | Event | Purpose |
@@ -9,6 +9,7 @@ failure (they all `process.exit(0)` on any error).
 | [`md-sync-check.js`](#md-sync-checkjs) | `SessionStart` | Warns Claude when `CLAUDE.md` ↔ `AGENTS.md` ↔ `GEMINI.md` drift apart |
 | [`sync-md.js`](#sync-mdjs) | `PostToolUse` (Edit/Write/MultiEdit) | Auto-mirrors `CLAUDE.md` into `AGENTS.md` and `GEMINI.md` |
 | [`github-sync-check.js`](#github-sync-checkjs) | `SessionStart` | Warns about uncommitted files and `origin` divergence |
+| [`title-state.js`](#title-statejs) | `SessionStart` + `UserPromptSubmit` + `Stop` | Paints the terminal title with the launch dir, the model and a busy/idle glyph |
 
 Recommended placement: drop the files directly into `~/.claude/hooks/` to keep
 them alongside `statusline.js`. The examples below use that flat layout.
@@ -133,7 +134,73 @@ session stale — but you pay zero startup cost for it.
 
 ---
 
-## Combined snippet (all three + the statusline)
+## `title-state.js`
+
+**What it does.** Paints the terminal window title as `<glyph> <launch dir> · <model>`:
+`✳ my-project · Op4.8:hg` when idle, `◐ my-project · Op4.8:hg` while a turn runs.
+The text half is composed by `statusline.js` — it is the one that knows the model
+and the directory the session was launched from — and left in
+`<tmpdir>/claude-title-text-<session_id>`. This hook adds the glyph for the event it
+fired on and returns the finished escape as `terminalSequence`.
+
+**Why the hook emits it and not the status line.** Claude Code spawns hooks and the
+status line without a controlling terminal, so neither can open `/dev/tty`
+(`Device not configured`) — a write there fails silently. `terminalSequence` hands
+the escape back to Claude Code, which writes it from the terminal it owns. It
+accepts OSC 0/1/2/9/99/777 and BEL only, so a title escape goes through as-is.
+
+**Why it needs a companion setting.** Claude Code paints its own window title on
+every state change and would overwrite this one. `CLAUDE_CODE_DISABLE_TERMINAL_TITLE=1`
+(see the install block) hands the title over. The cost is the animation: Claude Code
+cycles its glyph every 960 ms, while a hook fires on events, so the working glyph
+here stays on its first frame.
+
+**On the three events.** `SessionStart` claims the title as soon as the session
+opens (before the status line has rendered, it falls back to the working directory),
+`UserPromptSubmit` switches to the working glyph, `Stop` returns to the idle one.
+Install only the events you care about — each one is independent.
+
+**A note on terminal settings.** macOS Terminal composes its title bar from
+Settings → Profiles → Window → Title, and an escape-set title is only one of the
+parts. With "Working directory" and "Active process name" checked you get
+`my-project — ✳ my-project · Op4.8:hg — node`; uncheck them to see the title alone.
+
+**Install.** The env var belongs in the same settings file:
+
+```json
+{
+  "env": {
+    "CLAUDE_CODE_DISABLE_TERMINAL_TITLE": "1"
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          { "type": "command", "command": "node \"/absolute/path/to/title-state.js\" idle" }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          { "type": "command", "command": "node \"/absolute/path/to/title-state.js\" busy" }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          { "type": "command", "command": "node \"/absolute/path/to/title-state.js\" idle" }
+        ]
+      }
+    ]
+  }
+}
+```
+
+---
+
+## Combined snippet (all four + the statusline)
 
 If you want everything wired up at once, here's the full block to merge into
 `~/.claude/settings.json`:
@@ -145,10 +212,28 @@ If you want everything wired up at once, here's the full block to merge into
     "command": "node \"/absolute/path/to/statusline.js\"",
     "refreshInterval": 60
   },
+  "env": {
+    "CLAUDE_CODE_DISABLE_TERMINAL_TITLE": "1"
+  },
   "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          { "type": "command", "command": "node \"/absolute/path/to/title-state.js\" busy" }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          { "type": "command", "command": "node \"/absolute/path/to/title-state.js\" idle" }
+        ]
+      }
+    ],
     "SessionStart": [
       {
         "hooks": [
+          { "type": "command", "command": "node \"/absolute/path/to/title-state.js\" idle" },
           { "type": "command", "command": "node \"/absolute/path/to/github-sync-check.js\"", "timeout": 10 },
           { "type": "command", "command": "node \"/absolute/path/to/md-sync-check.js\"",      "timeout": 5  }
         ]

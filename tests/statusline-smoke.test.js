@@ -15,15 +15,27 @@ function stripAnsi(s) {
 
 function runStatusline(input, env = {}, execFileSyncStub = () => '') {
   let stdout = '';
+  let title = null;
   const stdin = new EventEmitter();
   stdin.setEncoding = () => {};
   // The width budget reads COLUMNS; the ambient terminal's value must not
   // leak into tests — only an explicit `env` override sets it.
   const mergedEnv = { ...process.env, ...env };
   if (!('COLUMNS' in env)) delete mergedEnv.COLUMNS;
+  // Capture the terminal-title text the script leaves for the title-state hook,
+  // instead of littering the real tmpdir with one file per test run.
+  const fsStub = Object.create(fs);
+  fsStub.writeFileSync = (file, data, ...rest) => {
+    if (String(file).includes('claude-title-text-')) {
+      title = String(data);
+      return;
+    }
+    return fs.writeFileSync(file, data, ...rest);
+  };
   const context = {
     require: (name) => {
       if (name === 'child_process') return { execFileSync: execFileSyncStub };
+      if (name === 'fs') return fsStub;
       return require(name);
     },
     process: {
@@ -43,7 +55,7 @@ function runStatusline(input, env = {}, execFileSyncStub = () => '') {
   vm.runInNewContext(source, context, { filename: statusline });
   stdin.emit('data', JSON.stringify(input));
   stdin.emit('end');
-  return { raw: stdout, text: stripAnsi(stdout) };
+  return { raw: stdout, text: stripAnsi(stdout), title };
 }
 
 function makeTempDir() {
@@ -719,6 +731,39 @@ check('cache TTL falls back to project_dir slug (not current_dir) when transcrip
     }
   }, { CLAUDE_CONFIG_DIR: claude });
   assert(text.includes('cache 99% ↓1k +10 1h:'), text);
+});
+
+check('terminal title text carries the launch dir and the panel\'s model code', () => {
+  const current = makeTempDir();
+  const launch = makeTempDir();
+  const { title } = runStatusline({
+    model: { display_name: 'Opus 4.8 (1M context)' },
+    effort: { level: 'high' },
+    session_id: 'title-session',
+    workspace: { current_dir: current, project_dir: launch }
+  });
+  // The glyph and the escape belong to title-state.js; only the text is composed here.
+  assert.strictEqual(title, `${path.basename(launch)} \u00b7 Op4.8:hg (1m)`, String(title));
+});
+
+check('terminal title text falls back to the current dir without a project_dir', () => {
+  const dir = makeTempDir();
+  const { title } = runStatusline({
+    model: { display_name: 'Opus 4.8' },
+    session_id: 'title-session',
+    workspace: { current_dir: dir }
+  });
+  assert.strictEqual(title, `${path.basename(dir)} \u00b7 Op4.8`, String(title));
+});
+
+check('terminal title text is not written when the session id is unusable', () => {
+  const dir = makeTempDir();
+  const { title } = runStatusline({
+    model: { display_name: 'Opus 4.8' },
+    session_id: '../escape',
+    workspace: { current_dir: dir }
+  });
+  assert.strictEqual(title, null, String(title));
 });
 
 if (failures.length > 0) {
