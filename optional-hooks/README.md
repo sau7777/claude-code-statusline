@@ -9,7 +9,7 @@ failure (they all `process.exit(0)` on any error).
 | [`md-sync-check.js`](#md-sync-checkjs) | `SessionStart` | Warns Claude when `CLAUDE.md` ↔ `AGENTS.md` ↔ `GEMINI.md` drift apart |
 | [`sync-md.js`](#sync-mdjs) | `PostToolUse` (Edit/Write/MultiEdit) | Auto-mirrors `CLAUDE.md` into `AGENTS.md` and `GEMINI.md` |
 | [`github-sync-check.js`](#github-sync-checkjs) | `SessionStart` | Warns about uncommitted files and `origin` divergence |
-| [`title-state.js`](#title-statejs) | `SessionStart` + `UserPromptSubmit` + `Stop` | Paints the terminal title with the launch dir, the model and a busy/idle glyph |
+| [`title-state.js`](#title-statejs) | `SessionStart` + `UserPromptSubmit` + `Stop` | Paints the terminal title with the launch dir, the model and a busy/idle/waiting glyph |
 | [`title-tab.js`](#title-tabjs) | `SessionStart` + `SessionEnd` | Switches the session's tab to a Terminal profile that shows nothing but that title |
 
 Recommended placement: drop the files directly into `~/.claude/hooks/` to keep
@@ -138,7 +138,9 @@ session stale — but you pay zero startup cost for it.
 ## `title-state.js`
 
 **What it does.** Paints the terminal window title as `<glyph> <launch dir> · <model>`:
-`✳ my-project · Op4.8` when idle, `◐ my-project · Op4.8` while a turn runs.
+`✳ my-project · Op4.8` when idle, `◐ my-project · Op4.8` while a turn runs,
+`◆ my-project · Op4.8` when the turn has ended but background work it started
+is still running.
 The text half is composed by `statusline.js` — it is the one that knows the model
 and the directory the session was launched from — and left in
 `<tmpdir>/claude-title-text-<session_id>`. This hook adds the glyph for the event it
@@ -160,6 +162,17 @@ here stays on its first frame.
 opens (before the status line has rendered, it falls back to the working directory),
 `UserPromptSubmit` switches to the working glyph, `Stop` returns to the idle one.
 Install only the events you care about — each one is independent.
+
+**Where the third glyph comes from.** `Stop` carries `background_tasks` (Claude
+Code 2.1.302+): the background work this session registered and left in flight —
+backgrounded shells, agents, monitors, workflows — with an `id`, `type`, `status`
+and `description` each, and an empty array when there is nothing. The field exists
+precisely to let a hook tell "the session is done" from "the session is parked
+until background work wakes it", which Claude Code's own title renders alike. This
+hook only needs the count, so `◆` means one or more, whatever their kind. Builds
+that predate the field send nothing, which reads as nothing in flight, so the
+title behaves as it did before. (`Stop` also carries `session_crons` for `/loop`
+and scheduled wakeups; this hook ignores them.)
 
 **A note on terminal settings.** macOS Terminal composes its title bar from
 Settings → Profiles → Window → Title, and an escape-set title is only one of the

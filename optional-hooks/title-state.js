@@ -2,11 +2,13 @@
 // Terminal Title - SessionStart / UserPromptSubmit / Stop Hook
 //
 // Paints the terminal window title as "<glyph> <launch dir> · <model>", e.g.
-// "✳ my-project · Op4.8:hg" when idle and "◐ my-project · Op4.8:hg" while a turn
-// runs. The text half is composed by statusline.js, which knows the model and the
-// launch directory, and left in <tmpdir>/claude-title-text-<session_id>; this hook
-// adds the glyph for the event it fired on and returns the whole escape as
-// `terminalSequence`, which Claude Code emits on our behalf.
+// "✳ my-project · Op4.8:hg" when idle, "◐ my-project · Op4.8:hg" while a turn runs
+// and "◆ my-project · Op4.8:hg" when the turn is over but background work it
+// started is still running. The text half is composed by statusline.js, which
+// knows the model and the launch directory, and left in
+// <tmpdir>/claude-title-text-<session_id>; this hook adds the glyph for the
+// event it fired on and returns the whole escape as `terminalSequence`, which
+// Claude Code emits on our behalf.
 //
 // Why not write the escape directly: hooks and the status line are both spawned
 // without a controlling terminal, so /dev/tty cannot be opened from either.
@@ -22,10 +24,14 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 
-// Same two glyphs Claude Code's own title uses: a spinner frame while it works,
-// the idle mark otherwise. A hook fires on events rather than on a timer, so the
-// working glyph stays on its first frame instead of animating.
-const glyph = process.argv[2] === 'busy' ? '◐' : '✳';
+// The first two are the glyphs Claude Code's own title uses: a spinner frame
+// while it works, the idle mark otherwise. A hook fires on events rather than on
+// a timer, so the working glyph stays on its first frame instead of animating.
+// The third is ours, for a turn that ended with background work still in flight.
+const BUSY = '◐';
+const IDLE = '✳';
+const WAIT = '◆';
+const busy = process.argv[2] === 'busy';
 
 let input = '';
 const stdinTimeout = setTimeout(() => process.exit(0), 3000);
@@ -46,6 +52,14 @@ process.stdin.on('end', () => {
     // At SessionStart the status line may not have rendered yet. Fall back to the
     // working directory so the title never keeps showing the previous session.
     if (!text) text = path.basename(data.cwd || '') || 'Claude Code';
+    // Stop hands the hook `background_tasks` (Claude Code 2.1.302+): the work
+    // this session registered and left running — backgrounded shells, agents,
+    // monitors, workflows — each of which wakes the session again when it ends.
+    // Claude Code's own title paints that state as idle, and telling the two
+    // apart is the whole point of the third glyph. Older builds omit the field,
+    // which reads as nothing in flight; so does any other shape.
+    const waiting = Array.isArray(data.background_tasks) && data.background_tasks.length > 0;
+    const glyph = busy ? BUSY : waiting ? WAIT : IDLE;
     process.stdout.write(JSON.stringify({
       terminalSequence: `\x1b]0;${glyph} ${text}\x07`
     }));
