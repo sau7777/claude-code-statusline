@@ -52,13 +52,21 @@ process.stdin.on('end', () => {
     // At SessionStart the status line may not have rendered yet. Fall back to the
     // working directory so the title never keeps showing the previous session.
     if (!text) text = path.basename(data.cwd || '') || 'Claude Code';
-    // Stop hands the hook `background_tasks` (Claude Code 2.1.302+): the work
-    // this session registered and left running — backgrounded shells, agents,
-    // monitors, workflows — each of which wakes the session again when it ends.
-    // Claude Code's own title paints that state as idle, and telling the two
-    // apart is the whole point of the third glyph. Older builds omit the field,
-    // which reads as nothing in flight; so does any other shape.
-    const waiting = Array.isArray(data.background_tasks) && data.background_tasks.length > 0;
+    // Stop hands the hook `background_tasks`: every running/pending row of the
+    // session's task registry. Claude Code's own title paints that state as idle,
+    // and telling the two apart is the whole point of the third glyph. Builds
+    // without the field (it is in 2.1.302, the oldest one checked) read as
+    // nothing in flight; so does any other shape.
+    //
+    // Not every row is work the session is waiting on. A published artifact the
+    // session watches is a `monitor` row ("live updates for artifact <url>") that
+    // runs until the session ends, one per artifact, and counting those pins the
+    // glyph on for good. So only the kinds that finish on their own are counted,
+    // by the friendly `type` label. Anything else stays uncounted, future kinds
+    // included: a quiet title beats a stuck one.
+    const WAKES_THE_SESSION = new Set(['shell', 'subagent', 'workflow', 'MCP task']);
+    const tasks = Array.isArray(data.background_tasks) ? data.background_tasks : [];
+    const waiting = tasks.some(t => t && WAKES_THE_SESSION.has(t.type));
     const glyph = busy ? BUSY : waiting ? WAIT : IDLE;
     process.stdout.write(JSON.stringify({
       terminalSequence: `\x1b]0;${glyph} ${text}\x07`

@@ -163,16 +163,29 @@ opens (before the status line has rendered, it falls back to the working directo
 `UserPromptSubmit` switches to the working glyph, `Stop` returns to the idle one.
 Install only the events you care about — each one is independent.
 
-**Where the third glyph comes from.** `Stop` carries `background_tasks` (Claude
-Code 2.1.302+): the background work this session registered and left in flight —
-backgrounded shells, agents, monitors, workflows — with an `id`, `type`, `status`
+**Where the third glyph comes from.** `Stop` carries `background_tasks`: every
+running/pending row of the session's task registry, with an `id`, `type`, `status`
 and `description` each, and an empty array when there is nothing. The field exists
 precisely to let a hook tell "the session is done" from "the session is parked
-until background work wakes it", which Claude Code's own title renders alike. This
-hook only needs the count, so `◆` means one or more, whatever their kind. Builds
-that predate the field send nothing, which reads as nothing in flight, so the
-title behaves as it did before. (`Stop` also carries `session_crons` for `/loop`
-and scheduled wakeups; this hook ignores them.)
+until background work wakes it", which Claude Code's own title renders alike.
+Builds without the field (it is in 2.1.302, the oldest one checked) read as nothing
+in flight, so the title behaves as it did before. (`Stop` also carries
+`session_crons` for `/loop` and scheduled wakeups; this hook ignores them.)
+
+**Why it counts only some of them.** The registry also holds work that never
+finishes on its own. Each published artifact the session watches is a `monitor`
+row, `live updates for artifact <url>`, that stays `running` until the session
+ends, so a session that published a few artifacts carries a few of them on every
+`Stop`, and counting them pins the glyph on for good. The hook therefore counts by
+the `type` label, and only these: `shell` (a backgrounded Bash command), `subagent`,
+`workflow` and `MCP task`.
+
+Everything else stays uncounted, including `teammate`, `dream`, `auto-mode scan`,
+`memory import`, `cloud session` and any future kind: a quiet title beats a stuck
+one. `monitor` is the only one of those seen in real payloads, so leaving the rest
+out is caution rather than a finding about them. One caveat from the payload's own
+shape: a Bash-based monitor is labelled `shell` like any other backgrounded command,
+so it counts; the label is all the hook gets.
 
 **A note on terminal settings.** macOS Terminal composes its title bar from
 Settings → Profiles → Window → Title, and an escape-set title is only one of the
